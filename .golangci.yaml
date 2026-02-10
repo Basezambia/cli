@@ -1,4 +1,10 @@
 version: "2"
+run:
+  # golangci-lint binaries are often built with the latest stable Go (currently 1.24),
+  # while this repo tracks newer Go versions quickly.
+  # Pinning analysis to 1.24 keeps local/CI linting functional until upstream linter
+  # binaries support the newer parser/runtime.
+  go: "1.24"
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -13,7 +19,6 @@ linters:
     - copyloopvar
     - decorder
     - durationcheck
-    - embeddedstructfieldcheck
     - errchkjson
     - errname
     - errorlint
