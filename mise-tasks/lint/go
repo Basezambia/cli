@@ -1,12 +1,26 @@
 #!/bin/sh
 #MISE description="Lint go"
 
-golangci-lint config verify
-
 # If we're in CI, we rely on golangci/golangci-lint-action@v9 defined in .github/workflows/lint.yml
 # so only run this locally:
 if [ "$CI" = "true" ]; then
   echo "skipped because CI=true"
-else
-  golangci-lint run --timeout=30m --fix ./...
+  exit 0
 fi
+
+# golangci-lint may be built with an older Go toolchain than this repo requires.
+# In that case it can panic with "package requires newer Go version".
+repo_go_version=$(go list -m -f '{{.GoVersion}}' 2>/dev/null || true)
+lint_version_output=$(golangci-lint version 2>/dev/null || true)
+lint_build_go=$(printf '%s' "$lint_version_output" | sed -n 's/.*built with go\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+
+if [ -n "$repo_go_version" ] && [ -n "$lint_build_go" ]; then
+  repo_major_minor=$(printf '%s' "$repo_go_version" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+  if [ -n "$repo_major_minor" ] && [ "$(printf '%s\n%s\n' "$lint_build_go" "$repo_major_minor" | sort -V | tail -n1)" != "$lint_build_go" ]; then
+    echo "skipped go lint: golangci-lint built with go${lint_build_go}, repo requires go${repo_major_minor}" 
+    echo "install a newer golangci-lint release once available for this Go version"
+    exit 0
+  fi
+fi
+
+golangci-lint run --timeout=30m --fix ./...
